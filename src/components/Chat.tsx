@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 //
 // ──────────────────────────────────────────────────────────────────────────────────────────
 //   >>> ChatSidebar <<<
-// Shows a list of user messages in a collapsible sidebar
+// Shows a list of user messages in a collapsible sidebar, responsive for mobile
 // ──────────────────────────────────────────────────────────────────────────────────────────
 //
 function ChatSidebar({
@@ -22,12 +22,14 @@ function ChatSidebar({
   onToggle: () => void;
   messages: { id: string; content: string; role: string }[];
 }) {
+  // On small screens, the sidebar takes full width if open;
+  // on medium and up, it's a fixed width of 16rem (64).
   return (
     <aside
       className={`
-        ${isOpen ? 'w-64' : 'w-0'}
-        overflow-hidden transition-all duration-300
         bg-gray-50 border-r border-gray-200
+        overflow-hidden transition-all duration-300
+        ${isOpen ? 'w-full md:w-64' : 'w-0 md:w-0'}
       `}
     >
       <div className="p-4 h-full flex flex-col">
@@ -39,9 +41,9 @@ function ChatSidebar({
           <button
             onClick={onToggle}
             aria-label="Toggle Sidebar"
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 md:hidden"
           >
-            {isOpen ? '←' : '→'}
+            {isOpen ? 'Close' : 'Open'}
           </button>
         </div>
 
@@ -49,12 +51,11 @@ function ChatSidebar({
         <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-1">
           {messages.length > 0 ? (
             messages
-              // Filter out the assistant messages in the history list
               .filter((m) => m.role === 'user')
               .map((message) => (
                 <div
                   key={message.id}
-                  className="p-2 text-sm bg-white rounded-lg shadow-sm cursor-pointer hover:bg-gray-100 truncate"
+                  className="p-2 text-sm bg-white rounded-lg shadow-sm cursor-pointer hover:bg-gray-100 truncate text-black"
                 >
                   {message.content}
                 </div>
@@ -101,11 +102,7 @@ function MessageBubble({
           {isAssistant ? 'AI Assistant' : 'You'}
         </p>
 
-        {/* 
-          Render the message content as Markdown. 
-          - remarkGfm allows tables, strikethrough, etc.
-          - The "prose" classes come from @tailwindcss/typography for styling
-        */}
+        {/* Render the message content as Markdown */}
         <div className="prose prose-sm prose-gray">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content}
@@ -120,7 +117,7 @@ function MessageBubble({
 // ──────────────────────────────────────────────────────────────────────────────────────────
 //   >>> Chat <<<
 // Main component for the chat interface. Manages the sidebar, text input, example prompts,
-// and displays streaming messages from the AI model.
+// and displays streaming messages from the AI model, with responsive design for mobile.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 //
 export function Chat() {
@@ -154,14 +151,12 @@ export function Chat() {
   /**
    * `useChat` automatically handles streaming from the /api/chat endpoint.
    * As the assistant sends tokens, this hook updates `messages` with each chunk.
-   * We'll see headings, bold text, etc. in real time, thanks to ReactMarkdown.
    */
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
     onError: (error: Error) => {
       logError(error, 'chat_error');
 
-      // Handle rate limit (429) or quota issues
       if (error.message.includes('429') || error.message.includes('quota')) {
         toast.error('Rate limit reached or insufficient quota. Please try again later.');
       } else {
@@ -194,7 +189,7 @@ export function Chat() {
     }
   };
 
-  // Some example prompts for quick user input
+  // Example prompts for quick user input
   const examplePrompts = [
     'Should I hire Oussama Zeddam?',
     'How does blockchain work?',
@@ -209,7 +204,15 @@ export function Chat() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] max-w-6xl mx-auto bg-gray-50 rounded-lg shadow-sm">
+    <div
+      className="
+        flex flex-col md:flex-row
+        w-full min-h-screen
+        bg-gray-50 rounded-md
+        shadow-sm
+        overflow-hidden
+      "
+    >
       {/* Sidebar for user messages */}
       <ChatSidebar
         isOpen={isSidebarOpen}
@@ -218,9 +221,14 @@ export function Chat() {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col p-6">
+      <div className="flex-1 flex flex-col p-4 sm:p-6">
         {/* Messages Section */}
-        <div className="flex-1 overflow-y-auto space-y-6 mb-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-4">
+        <div
+          className="
+            flex-1 overflow-y-auto space-y-6 mb-6
+            scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100
+          "
+        >
           <AnimatePresence>
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
@@ -240,9 +248,13 @@ export function Chat() {
               onChange={handleInputChange}
               placeholder="Type your message..."
               className="
-                flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg
+                flex-1 p-3 bg-gray-50
+                border border-gray-200
+                rounded-lg
                 focus:outline-none focus:ring-2 focus:ring-[#09AC75]
-                focus:border-transparent text-gray-700 placeholder-gray-400
+                focus:border-transparent
+                text-gray-700
+                placeholder-gray-400
                 transition-all duration-200
               "
               disabled={loading || isLoading}
@@ -251,11 +263,15 @@ export function Chat() {
               type="submit"
               disabled={loading || isLoading || !input.trim()}
               className="
-                px-6 py-3 bg-gradient-to-r from-[#09AC75] to-[#07885d] text-white font-medium
-                rounded-lg hover:from-[#07885d] hover:to-[#067957]
+                px-6 py-3
+                bg-gradient-to-r from-[#09AC75] to-[#07885d]
+                text-white font-medium
+                rounded-lg
+                hover:from-[#07885d] hover:to-[#067957]
                 disabled:opacity-50 disabled:cursor-not-allowed
                 transition-all duration-200 shadow-sm hover:shadow
-                flex items-center justify-center min-w-[100px]
+                flex items-center justify-center
+                min-w-[80px]
               "
             >
               {(loading || isLoading) ? (
